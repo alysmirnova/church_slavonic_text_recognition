@@ -73,8 +73,7 @@ class PhotoCtrl(wx.App):
             self.onView()
             self.text_from_img.SetLabel("Распознается...")
             rotate_image = skew_correction(dialog.GetPath())
-            text_from_image = segment_and_recognize(rotate_image)
-            self.text_from_img.SetLabel(text_from_image)
+            segment_and_recognize(rotate_image, self.text_from_img)
         dialog.Destroy()
 
     def onSave(self, event):

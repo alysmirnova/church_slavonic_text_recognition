@@ -171,70 +171,6 @@ def find_parts_of_letters(sorted_contours, letter):
     return parts_of_letters
 
 
-def recognize_characters_from_images(array_lines):
-    # try:
-    model_loaded = keras.models.load_model(resource_path('model_letters.h5'))
-    model_loaded_diac = keras.models.load_model(resource_path('model_diac.h5'))
-
-    text = []
-    new_array_lines = cut_double_letters(array_lines)
-    for i in range(len(new_array_lines)):
-        for j in range(len(new_array_lines[i])):
-            for k in range(len(new_array_lines[i][j])):
-                kernel = np.ones((1, 5), np.uint8)
-                letter = new_array_lines[i][j][k]
-                height = find_height_of_letter(letter)
-                if letter.shape[0] - height != 0:
-                    letter = letter[letter.shape[0] - height - 1:, :]
-                dilated = cv2.dilate(letter, kernel, iterations=1)
-                sorted_contours = find_contours(dilated, 1)
-                sorted_contours = remove_small_contours(sorted_contours)
-                if len(sorted_contours) != 0:
-                    parts_of_letters = find_parts_of_letters(sorted_contours, letter)
-                    parts_of_letters[0] = resize_image(parts_of_letters[0])
-                    cut_letter_array = tf.keras.utils.img_to_array(parts_of_letters[0])
-                    cut_letter_array /= 255
-                    y_pred = model_loaded.predict(cut_letter_array, verbose=0)
-                    y_pred_bool = (y_pred > 0.5)
-                    if not (np.all(y_pred_bool == False)):
-                        text.append(str(CHURCH_SLAVONIC_LETTERS[np.argmax(y_pred)]))
-                    excluded = [5, 6, 8, 9]
-                    if len(parts_of_letters) >= 2:
-                        parts_of_letters[1] = resize_image(parts_of_letters[1], (16, 16))
-                        cut_sign_array = tf.keras.utils.img_to_array(parts_of_letters[1])
-                        cut_sign_array /= 255
-                        y_pred = model_loaded_diac.predict(cut_sign_array, verbose=0)
-                        y_pred_bool = (y_pred > 0.5)
-                        if not (np.all(y_pred_bool == False)):
-                            if np.argmax(y_pred) == 5 and text[-1] == "\u0461":
-                                text.pop()
-                                text.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
-                                continue
-                            if np.argmax(y_pred) == 8 and text[-1] in LETTERS_WITH_TITLE:
-                                text.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
-                                continue
-                            if np.argmax(y_pred) == 3 and text[-1] == "\u0461":
-                                text.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
-                                continue
-                            if np.argmax(y_pred) == 6 and text[-1] == "\u0131":
-                                text.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
-                                continue
-                            if np.argmax(y_pred) == 9 and text[-1] == "\u002E":
-                                text.pop()
-                                text.append(':')
-                                continue
-                            if np.argmax(y_pred) == 9 and text[-1] == "\u002C":
-                                text.pop()
-                                text.append(';')
-                                continue
-                            if text[-1] in CHURCH_SLAVONIC_VOWELS and np.argmax(y_pred) not in excluded:
-                                text.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
-
-            text.append(" ")
-        text.append("\n")
-    return text
-
-
 def connect_cut_letters(text_with_corrections, letter, next_letter=True):
     text_with_corrections.pop()
     if next_letter:
@@ -274,7 +210,70 @@ def remove_errors_from_text(text):
     return text_with_corrections
 
 
-def character_recognition(array_lines):
-    text_from_image = recognize_characters_from_images(array_lines)
-    text_from_image = remove_errors_from_text(text_from_image)
-    return text_from_image
+def character_recognition(array_lines, text_in_app):
+    model_loaded = keras.models.load_model(resource_path('model_letters.h5'))
+    model_loaded_diac = keras.models.load_model(resource_path('model_diac.h5'))
+
+    text = ''
+    current_line = []
+    new_array_lines = cut_double_letters(array_lines)
+    for i in range(len(new_array_lines)):
+        for j in range(len(new_array_lines[i])):
+            for k in range(len(new_array_lines[i][j])):
+                kernel = np.ones((1, 5), np.uint8)
+                letter = new_array_lines[i][j][k]
+                height = find_height_of_letter(letter)
+                if letter.shape[0] - height != 0:
+                    letter = letter[letter.shape[0] - height - 1:, :]
+                dilated = cv2.dilate(letter, kernel, iterations=1)
+                sorted_contours = find_contours(dilated, 1)
+                sorted_contours = remove_small_contours(sorted_contours)
+                if len(sorted_contours) != 0:
+                    parts_of_letters = find_parts_of_letters(sorted_contours, letter)
+                    parts_of_letters[0] = resize_image(parts_of_letters[0])
+                    cut_letter_array = tf.keras.utils.img_to_array(parts_of_letters[0])
+                    cut_letter_array /= 255
+                    y_pred = model_loaded.predict(cut_letter_array, verbose=0)
+                    y_pred_bool = (y_pred > 0.5)
+                    if not (np.all(y_pred_bool == False)):
+                        current_line.append(str(CHURCH_SLAVONIC_LETTERS[np.argmax(y_pred)]))
+                    excluded = [5, 6, 8, 9]
+                    if len(parts_of_letters) >= 2:
+                        parts_of_letters[1] = resize_image(parts_of_letters[1], (16, 16))
+                        cut_sign_array = tf.keras.utils.img_to_array(parts_of_letters[1])
+                        cut_sign_array /= 255
+                        y_pred = model_loaded_diac.predict(cut_sign_array, verbose=0)
+                        y_pred_bool = (y_pred > 0.5)
+                        if not (np.all(y_pred_bool == False)):
+                            if np.argmax(y_pred) == 5 and current_line[-1] == "\u0461":
+                                current_line.pop()
+                                current_line.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
+                                continue
+                            if np.argmax(y_pred) == 8 and current_line[-1] in LETTERS_WITH_TITLE:
+                                current_line.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
+                                continue
+                            if np.argmax(y_pred) == 3 and current_line[-1] == "\u0461":
+                                current_line.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
+                                continue
+                            if np.argmax(y_pred) == 6 and current_line[-1] == "\u0131":
+                                current_line.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
+                                continue
+                            if np.argmax(y_pred) == 9 and current_line[-1] == "\u002E":
+                                current_line.pop()
+                                current_line.append(':')
+                                continue
+                            if np.argmax(y_pred) == 9 and current_line[-1] == "\u002C":
+                                current_line.pop()
+                                current_line.append(';')
+                                continue
+                            if current_line[-1] in CHURCH_SLAVONIC_VOWELS and np.argmax(y_pred) not in excluded:
+                                current_line.append(str(CHURCH_SLAVONIC_DIACRITICS[np.argmax(y_pred)]))
+
+            current_line.append(" ")
+
+        current_line = remove_errors_from_text(current_line)
+        for symbol in current_line:
+            text = text + symbol
+        text = text + "\n"
+        current_line = []
+        text_in_app.SetLabel(text)

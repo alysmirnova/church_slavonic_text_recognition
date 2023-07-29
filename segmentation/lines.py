@@ -54,7 +54,7 @@ def astar(array, start, goal):
             tentative_g_score = gscore[current] + heuristic(current, neighbor)
             if 0 <= neighbor[0] < array.shape[0]:
                 if 0 <= neighbor[1] < array.shape[1]:
-                    if array[neighbor[0]][neighbor[1]] == 0:
+                    if array[neighbor[0]][neighbor[1]] == 255:
                         continue
                 else:
                     continue

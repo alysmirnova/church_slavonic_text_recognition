@@ -1,0 +1,6 @@
+.idea
+__pycache__/
+venv/
+*.env
+notebooks/.ipynb_checkpoints
+*/.ipynb_checkpoints/*

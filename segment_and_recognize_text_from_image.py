@@ -4,9 +4,10 @@ from segmentation.letters import letter_segmentation
 from recognition.characters import character_recognition
 
 
-def segment_and_recognize(img):
+def segment_and_recognize(img, text_in_app):
     line_images = line_segmentation(img)
     array_lines = []
+
     for i in range(len(line_images)):
         array_words = []
         words = word_segmentation(line_images[i])
@@ -18,8 +19,4 @@ def segment_and_recognize(img):
             array_words.append(letters)
         array_lines.append(array_words)
 
-    text_from_image = character_recognition(array_lines)
-    text = ''
-    for symbol in text_from_image:
-        text = text + symbol
-    return text
+    character_recognition(array_lines, text_in_app)

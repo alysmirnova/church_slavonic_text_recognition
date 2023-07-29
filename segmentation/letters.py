@@ -8,7 +8,6 @@ def hconcat_resize_min(im_list):
     im_list_resize = [cv2.resize(im, (int(im.shape[1] * h_min / im.shape[0]), h_min),
                                  interpolation=cv2.INTER_CUBIC)
                       for im in im_list]
-    print('*', im_list_resize[0].shape, im_list_resize[1].shape)
     return cv2.hconcat(im_list_resize)
 
 
