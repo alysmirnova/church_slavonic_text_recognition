@@ -20,93 +20,60 @@ def resource_path(relative):
 
 def find_height_of_letter(letter):
     thresh_letter = thresholding(letter, False)
-    i = 0
-    f = True
-    while f and i < thresh_letter.shape[0]:
-        if np.count_nonzero(thresh_letter[i] == 255) != 0:
-            f = False
-        else:
-            i += 1
-    return thresh_letter.shape[0] - i
+    first_nonzero_row = np.where((thresh_letter == 255).any(axis=1))[0][0]
+    return thresh_letter.shape[0] - first_nonzero_row
 
 
 def cut_double_letters(array_lines):
-    suma_len = 0
-    suma_height = 0
-    count = 0
-    for i in range(len(array_lines)):
-        for j in range(len(array_lines[i])):
-            for k in range(len(array_lines[i][j])):
-                letter = array_lines[i][j][k]
-                suma_height += find_height_of_letter(letter)
-                suma_len += letter.shape[1]
-                count += 1
-    avg_len = suma_len / count
-    avg_height = suma_height / count
+    total_height = sum(find_height_of_letter(letter) for line in array_lines for word in line for letter in word)
+    total_length = sum(letter.shape[1] for line in array_lines for word in line for letter in word)
+    total_count = sum(len(word) for line in array_lines for word in line)
+
+    avg_len = total_length / total_count
+    avg_height = total_height / total_count
+
     new_array = []
-    for i in range(len(array_lines)):
+    for line in array_lines:
         array_words = []
-        for j in range(len(array_lines[i])):
+        for word in line:
             array_letters = []
-            for k in range(len(array_lines[i][j])):
-                letter = array_lines[i][j][k]
+            for letter in word:
                 height = find_height_of_letter(letter)
                 width = letter.shape[1]
+
                 if width > avg_len * 2 and height < avg_height:
                     amt = round(width / avg_len)
-                    for s in range(0, amt):
-                        if int(s * width / amt) != 0:
-                            array_letters.append(letter[:, int(s * width / amt) - 1:int((s + 1)
-                                                                                        * width / amt) + 1])
-                        else:
-                            array_letters.append(letter[:, int(s * width / amt):int((s + 1)
-                                                                                    * width / amt) + 1])
+                    split_width = width / amt
+                    array_letters.append([letter[:, int(s*split_width):int((s+1)*split_width)] for s in range(amt)])
                 else:
                     array_letters.append(letter)
+
             array_words.append(array_letters)
         new_array.append(array_words)
+
     return new_array
 
 
 def resize_image(letter, size=(28, 28)):
     h, w = letter.shape
     if h != w:
+        padding = abs(h-w) // 2
         if w > h:
-            add_top = (w-h) // 2 if (w-h) % 2 == 0 else (w-h) // 2 + 1
-            add_bottom = (w-h) // 2
-            array = [0 for _ in range(w)]
-            ndarray = np.array(array, dtype=int)
-            for _ in range(add_top):
-                letter = np.vstack((ndarray, letter))
-            for _ in range(add_bottom):
-                letter = np.vstack((letter, ndarray))
+            letter = np.pad(letter, ((padding, padding + (h-w)%2), (0, 0)), mode='constant')
         else:
-            add_left = (h-w) // 2 if (h-w) % 2 == 0 else (h-w) // 2 + 1
-            add_right = (h-w) // 2
-            nd = np.array([0])
-            for _ in range(h-1):
-                nd = np.vstack((nd, [0]))
-            for _ in range(add_left):
-                letter = np.insert(letter, 0, [0], axis=1)
-            for _ in range(add_right):
-                letter = np.append(letter, nd, axis=1)
+            letter = np.pad(letter, ((0, 0), (padding, padding + (w-h)%2)), mode='constant')
     return cv2.resize(letter.astype(float), size)
 
 
 def remove_small_contours(sorted_contours):
-    new_contours = []
-    for i in range(len(sorted_contours)):
-        x, y, w, h = cv2.boundingRect(sorted_contours[i])
-        if ((x+w)-x) * ((y+h)-y) > 3:
-            new_contours.append(sorted_contours[i])
+    new_contours = [ctr for ctr in sorted_contours if cv2.boundingRect(ctr)[2] * cv2.boundingRect(ctr)[3] > 3]
     return new_contours
 
 
-def cropp_letter(letter, a, b, c, d):
-    if c != 0:
-        return letter[a-1:b+1, c-1:d+1] if a != 0 else letter[a:b+1, c-1:d+1]
-    else:
-        return letter[a-1:b+1, c:d+1] if a != 0 else letter[a:b+1, c:d+1]
+ def cropp_letter(letter, a, b, c, d):
+    a_index = a - 1 if a != 0 else a
+    c_index = c - 1 if c != 0 else c
+    return letter[a_index:b+1, c_index:d+1]
 
 
 def find_parts_of_letters(sorted_contours, letter):
